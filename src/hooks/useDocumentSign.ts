@@ -1,4 +1,4 @@
-import * as WebBrowser from 'expo-web-browser'
+import { Linking } from 'react-native'
 import { User } from '../data/user'
 
 type CreateNewDocument = () => Promise<string>
@@ -40,14 +40,18 @@ const useDocumentSign = (): [
   StartDocument,
   SignDocument
 ] => {
+  const API_URL = process.env.EXPO_PUBLIC_SCRIVE_API_URL
+
   /// Construct the headers for the API calls
   const makeHeaders = () => {
     const headers = new Headers()
+    const oauthKey = process.env.EXPO_PUBLIC_SCRIVE_OAUTH_KEY
+    const oauthToken = process.env.EXPO_PUBLIC_SCRIVE_OAUTH_TOKEN
+    const oauthSignature = process.env.EXPO_PUBLIC_SCRIVE_OAUTH_SIGNATURE
 
-    headers.append(
-      'Authorization',
-      'oauth_signature_method="PLAINTEXT", oauth_consumer_key="659c27a6d0735cdf_7595", oauth_token="ee63ae623a835e56_30905", oauth_signature="9d11d25e68e273fc&9c6bda336365f552"'
-    )
+    const authHeader = `oauth_signature_method="PLAINTEXT", oauth_consumer_key="${oauthKey}", oauth_token="${oauthToken}", oauth_signature="${oauthSignature}"`
+
+    headers.append('Authorization', authHeader)
 
     headers.append('Cookie', 'lang="en"; lang-ssn="en"')
 
@@ -59,7 +63,7 @@ const useDocumentSign = (): [
     const headers = makeHeaders()
 
     const newDocument = await fetch(
-      'https://api-testbed.scrive.com/api/v2/documents/newfromtemplate/8222115557379372352',
+      `${API_URL}/api/v2/documents/newfromtemplate/8222115557379372352`,
       {
         method: 'POST',
         headers: headers,
@@ -77,7 +81,7 @@ const useDocumentSign = (): [
     const headers = makeHeaders()
 
     const newDocument = await fetch(
-      `https://api-testbed.scrive.com/api/v2/documents/${documentId}/start`,
+      `${API_URL}/api/v2/documents/${documentId}/start`,
       {
         method: 'POST',
         headers: headers,
@@ -95,6 +99,7 @@ const useDocumentSign = (): [
     parties: User[]
   ): Promise<Document> => {
     const headers = makeHeaders()
+    const redirectUrl = process.env.EXPO_PUBLIC_SCRIVE_REDIRECT_URL
 
     const formdata = new FormData()
 
@@ -102,7 +107,7 @@ const useDocumentSign = (): [
       is_signatory: false,
       signatory_role: 'viewer',
       delivery_method: 'api',
-      sign_success_redirect_url: 'http://www.unge.dev',
+      sign_success_redirect_url: redirectUrl,
       fields: [
         {
           type: 'company',
@@ -118,7 +123,7 @@ const useDocumentSign = (): [
         is_signatory: true,
         signatory_role: 'signing_party',
         delivery_method: 'api',
-        sign_success_redirect_url: 'http://www.unge.dev',
+        sign_success_redirect_url: redirectUrl,
         fields: [
           {
             type: 'company',
@@ -144,7 +149,7 @@ const useDocumentSign = (): [
     formdata.append('document', JSON.stringify(documentData))
 
     const newDocument = await fetch(
-      `https://api-testbed.scrive.com/api/v2/documents/${documentId}/update`,
+      `${API_URL}/api/v2/documents/${documentId}/update`,
       {
         method: 'POST',
         headers: headers,
@@ -158,10 +163,9 @@ const useDocumentSign = (): [
 
   /// Opens the relevant link for the signing party to sign the document
   const signDocument = async (party: SigningParty) => {
-    const baseUrl = 'https://api-testbed.scrive.com'
     const signingUrl = party.api_delivery_url
-    const url = new URL(signingUrl, baseUrl)
-    const result = await WebBrowser.openBrowserAsync(url.href)
+    const url = new URL(signingUrl, API_URL)
+    const result = await Linking.openURL(url.href)
   }
 
   return [createNewFromTemplate, updateDocument, startNewDocument, signDocument]
