@@ -1,4 +1,4 @@
-import { Linking } from 'react-native'
+import * as WebBrowser from 'expo-web-browser'
 import { User } from '../data/user'
 
 type CreateNewDocument = () => Promise<string>
@@ -161,7 +161,7 @@ const useDocumentSign = (): [
     const baseUrl = 'https://api-testbed.scrive.com'
     const signingUrl = party.api_delivery_url
     const url = new URL(signingUrl, baseUrl)
-    await Linking.openURL(url.toString())
+    const result = await WebBrowser.openBrowserAsync(url.href)
   }
 
   return [createNewFromTemplate, updateDocument, startNewDocument, signDocument]
