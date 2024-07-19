@@ -1,33 +1,25 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import {
-  Caption,
-  Headline,
-  Subheading,
-  useTheme,
-  Text,
   Button,
-  Paragraph,
-  Divider,
+  Caption,
   Card,
+  Divider,
+  Headline,
   List,
-  Avatar,
+  Paragraph,
+  Subheading,
+  Text,
+  useTheme,
 } from 'react-native-paper'
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { Tabs, TabScreen } from 'react-native-paper-tabs'
-import Chat from './Chat'
-import useTenderRequests from '../hooks/useTenderRequests'
+import { TabScreen, Tabs } from 'react-native-paper-tabs'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
-import useAuth from '../hooks/useAuth'
 import { TenderRequest as TenderRequestType } from '../data/tenderRequests'
+import useAuth from '../hooks/useAuth'
+import useDocumentSign from '../hooks/useDocumentSign'
 import useOffers from '../hooks/useOffers'
-import { Offer } from '../data/offers'
+import useTenderRequests from '../hooks/useTenderRequests'
+import Chat from './Chat'
 
 const ChevronRight = () => (
   <MaterialCommunityIcons
@@ -53,8 +45,14 @@ const TenderRequest = ({
   const [offers, updateOffer, , refreshOffers] = useOffers()
 
   const [showModal, setShowModal] = useState(false)
-  const [acceptanceMotivationText, setAcceptanceMotivationText] = useState("");
+  const [acceptanceMotivationText, setAcceptanceMotivationText] = useState('')
 
+  const [
+    createNewFromTemplate,
+    updateDocument,
+    startNewDocument,
+    signDocument,
+  ] = useDocumentSign()
 
   useEffect(() => {
     if (route.params.tenderRequestId) {
@@ -253,6 +251,38 @@ const TenderRequest = ({
                       </Card>
                     ))}
                   </List.Section>
+                  <Button
+                    mode="contained"
+                    onPress={async () => {
+                      // This function is a demo function to show how the signing process works
+                      // Actual flow would be multiple steps and multiple views.
+
+                      const newDocumentId = await createNewFromTemplate()
+                      await updateDocument(newDocumentId, tenderRequest.title, [
+                        user,
+                      ])
+                      const document = await startNewDocument(newDocumentId)
+
+                      /// Matches the logged in user to the signing party of the document
+                      const signingParty = document.parties.find((party) => {
+                        const emailField = party.fields.find(
+                          (field) => field.type === 'email'
+                        )
+                        if (!emailField) return false
+                        return emailField.value === user?.email
+                      })
+
+                      if (!signingParty) {
+                        console.error('Could not find signing party')
+                        return
+                      }
+
+                      /// Opens the relevant link for the signing party to sign the document
+                      await signDocument(signingParty)
+                    }}
+                  >
+                    Demoknapp: Signera avtal
+                  </Button>
                 </Container>
               )}
             </>
@@ -285,7 +315,7 @@ const TenderRequest = ({
                           }
                           subtitle={
                             'Inkom ' +
-                            offer.submissionDate?.toString().split('T')[0] 
+                            offer.submissionDate?.toString().split('T')[0]
                           }
                           right={(props) => {
                             if (offer.approved)
@@ -306,7 +336,7 @@ const TenderRequest = ({
                                       marginTop: 5,
                                     }}
                                   >
-                                    Tilldelad 
+                                    Tilldelad
                                   </Text>
                                 </Container>
                               )
@@ -331,7 +361,9 @@ const TenderRequest = ({
                         />
                         {offer.acceptanceMotivation && (
                           <View style={styles.acceptanceReasonTextWrapper}>
-                            <Text style={styles.acceptanceReasonText}>Acceptance reason: {offer.acceptanceMotivation}</Text>
+                            <Text style={styles.acceptanceReasonText}>
+                              Acceptance reason: {offer.acceptanceMotivation}
+                            </Text>
                           </View>
                         )}
                       </Card>
@@ -344,7 +376,9 @@ const TenderRequest = ({
                             <TextInput
                               style={styles.modalInput}
                               multiline={true}
-                              onChangeText={text => setAcceptanceMotivationText(text)}
+                              onChangeText={(text) =>
+                                setAcceptanceMotivationText(text)
+                              }
                             />
                             <Container style={styles.modalButtons}>
                               <Button onPress={() => setShowModal(false)}>
@@ -354,8 +388,16 @@ const TenderRequest = ({
                                 mode="contained"
                                 onPress={() => {
                                   console.log('offer', offer)
-                                  console.log('motivation text', acceptanceMotivationText)
-                                  updateOffer({ ...offer, acceptanceMotivation: acceptanceMotivationText, approved: true })
+                                  console.log(
+                                    'motivation text',
+                                    acceptanceMotivationText
+                                  )
+                                  updateOffer({
+                                    ...offer,
+                                    acceptanceMotivation:
+                                      acceptanceMotivationText,
+                                    approved: true,
+                                  })
                                   setShowModal(false)
                                 }}
                               >
@@ -364,7 +406,7 @@ const TenderRequest = ({
                             </Container>
                           </View>
                         </View>
-                      </Modal> 
+                      </Modal>
                     </View>
                   ))}
                 </Container>
@@ -390,11 +432,11 @@ const TenderRequest = ({
   )
 }
 
-const Row = ({ children }) => (
+const Row = ({ children }: { children: ReactNode }) => (
   <View style={{ flexDirection: 'row' }}>{children}</View>
 )
 
-const Column = ({ children }) => (
+const Column = ({ children }: { children: ReactNode }) => (
   <View style={{ flexDirection: 'column', marginRight: 20 }}>{children}</View>
 )
 
@@ -450,9 +492,9 @@ const styles = StyleSheet.create({
   },
   acceptanceReasonTextWrapper: {
     paddingHorizontal: 12,
-    paddingBottom: 12
+    paddingBottom: 12,
   },
   acceptanceReasonText: {
     fontSize: 12,
-  }
+  },
 })
