@@ -11,6 +11,8 @@ import tenderRequests from '../src/data/tenderRequests'
 import suppliers from '../src/data/suppliers'
 import { categories } from '../src/data/categories'
 import { sendPushNotification as push } from './notifications'
+import { createPDF } from './signicatFile'
+
 const port = process.env.PORT || 3000
 const app = express()
 const server = createServer(app)
@@ -233,7 +235,7 @@ io.on('connection', (socket) => {
     respond(state.offers)
   })
 
-  socket.on('editOffer', (offer) => {
+  socket.on('editOffer', async (offer)  =>  {
     const index = state.offers.findIndex((d) => d.id === offer.id)
     const oldOffer = state.offers[index]
     if (!oldOffer.approved && offer.approved) {
@@ -244,7 +246,7 @@ io.on('connection', (socket) => {
       const otherOffersForTender = state.offers.filter(
         (o) => o.tenderRequestId === tenderRequest?.id && offer.id !== o.id
       )
-      if (tenderRequest)
+      if (tenderRequest) {
         sendPushNotification({
           to: [token],
           title: 'Anbud godkänt',
@@ -258,7 +260,7 @@ io.on('connection', (socket) => {
           },
         })
 
-        if (tenderRequest && otherOffersForTender)
+        if (otherOffersForTender)
           otherOffersForTender.forEach(o =>
             sendPushNotification({
               to: [o.supplier.token],
@@ -273,7 +275,11 @@ io.on('connection', (socket) => {
               },
             }) 
           )
-        }
+
+          const contract = await createPDF(offer, tenderRequest);
+        if(contract) offer.contract = contract;
+      }
+    }
     state.offers[index] = offer
     io.emit('offers', state.offers)
   })
