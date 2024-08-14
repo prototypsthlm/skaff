@@ -1,33 +1,27 @@
-import { useEffect, useLayoutEffect, useState } from 'react'
+import * as WebBrowser from 'expo-web-browser'
+import { useEffect, useState } from 'react'
+import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native'
 import {
-  Caption,
-  Headline,
-  Subheading,
-  useTheme,
-  Text,
   Button,
-  Paragraph,
-  Divider,
+  Caption,
   Card,
+  Divider,
+  Headline,
   List,
-  Avatar,
+  Paragraph,
+  Subheading,
+  Text,
+  useTheme,
 } from 'react-native-paper'
-import {
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
 import { Tabs, TabScreen } from 'react-native-paper-tabs'
-import Chat from './Chat'
-import useTenderRequests from '../hooks/useTenderRequests'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'
-import useAuth from '../hooks/useAuth'
-import { TenderRequest as TenderRequestType } from '../data/tenderRequests'
-import useOffers from '../hooks/useOffers'
 import { Offer } from '../data/offers'
+import { TenderRequest as TenderRequestType } from '../data/tenderRequests'
+import { User } from '../data/user'
+import useAuth from '../hooks/useAuth'
+import useOffers from '../hooks/useOffers'
+import useTenderRequests from '../hooks/useTenderRequests'
+import Chat from './Chat'
 
 const ChevronRight = () => (
   <MaterialCommunityIcons
@@ -53,8 +47,7 @@ const TenderRequest = ({
   const [offers, updateOffer, , refreshOffers] = useOffers()
 
   const [showModal, setShowModal] = useState(false)
-  const [acceptanceMotivationText, setAcceptanceMotivationText] = useState("");
-
+  const [acceptanceMotivationText, setAcceptanceMotivationText] = useState('')
 
   useEffect(() => {
     if (route.params.tenderRequestId) {
@@ -219,38 +212,61 @@ const TenderRequest = ({
                   <List.Section>
                     <List.Subheader>Dina skickade anbud</List.Subheader>
                     {validOffers.map((offer, i) => (
-                      <Card
-                        key={i}
-                        style={styles.card}
-                        onPress={() => {
-                          console.log('pressed', offer)
-                          navigation.navigate('Supplier', {
-                            supplier: offer.supplier,
-                          })
-                        }}
-                      >
-                        <Card.Title
-                          titleVariant="titleSmall"
-                          titleStyle={{
-                            fontSize: 14,
+                      <View>
+                        <Card
+                          key={i}
+                          style={styles.card}
+                          onPress={() => {
+                            console.log('pressed', offer)
+                            navigation.navigate('Supplier', {
+                              supplier: offer.supplier,
+                            })
                           }}
-                          left={(props) => (
-                            <MaterialCommunityIcons
-                              name="file-document-outline"
-                              color="black"
-                              size={24}
-                            />
+                        >
+                          <Card.Title
+                            titleVariant="titleSmall"
+                            titleStyle={{
+                              fontSize: 14,
+                            }}
+                            left={(props) => (
+                              <MaterialCommunityIcons
+                                name="file-document-outline"
+                                color="black"
+                                size={24}
+                              />
+                            )}
+                            title={offer.price.SEK + ' kr'}
+                            subtitle={
+                              'Inlämnad ' +
+                              offer.submissionDate?.toString().split('T')[0] +
+                              '. ' +
+                              (offer.approved
+                                ? `Vunnen\nAcceptance reason: ${offer.acceptanceMotivation}`
+                                : 'Ej godkänt')
+                            }
+                            subtitleNumberOfLines={3}
+                            subtitleStyle={{
+                              paddingBottom: 5,
+                            }}
+                            right={(props) => <ChevronRight />}
+                          />
+                        </Card>
+                        {offer.approved &&
+                          offer.contract &&
+                          singedUserIsSigningParty(offer, user) && (
+                            <Button
+                              mode="contained"
+                              onPress={() => {
+                                console.log('Contract info: ', offer.contract)
+                                WebBrowser.openBrowserAsync(
+                                  offer.contract.supplierSignUrl
+                                )
+                              }}
+                            >
+                              Sign contract
+                            </Button>
                           )}
-                          title={offer.price.SEK + ' kr'}
-                          subtitle={
-                            'Inlämnad ' +
-                            offer.submissionDate?.toString().split('T')[0] +
-                            '. ' +
-                            (offer.approved ? 'Vunnen' : 'Ej godkänt')
-                          }
-                          right={(props) => <ChevronRight />}
-                        />
-                      </Card>
+                      </View>
                     ))}
                   </List.Section>
                 </Container>
@@ -285,7 +301,7 @@ const TenderRequest = ({
                           }
                           subtitle={
                             'Inkom ' +
-                            offer.submissionDate?.toString().split('T')[0] 
+                            offer.submissionDate?.toString().split('T')[0]
                           }
                           right={(props) => {
                             if (offer.approved)
@@ -306,7 +322,7 @@ const TenderRequest = ({
                                       marginTop: 5,
                                     }}
                                   >
-                                    Tilldelad 
+                                    Tilldelad
                                   </Text>
                                 </Container>
                               )
@@ -331,10 +347,27 @@ const TenderRequest = ({
                         />
                         {offer.acceptanceMotivation && (
                           <View style={styles.acceptanceReasonTextWrapper}>
-                            <Text style={styles.acceptanceReasonText}>Acceptance reason: {offer.acceptanceMotivation}</Text>
+                            <Text style={styles.acceptanceReasonText}>
+                              Acceptance reason: {offer.acceptanceMotivation}
+                            </Text>
                           </View>
                         )}
                       </Card>
+                      {offer.approved &&
+                        offer.contract &&
+                        singedUserIsSigningParty(offer, user) && (
+                          <Button
+                            mode="contained"
+                            onPress={() => {
+                              console.log('Contract info: ', offer.contract)
+                              WebBrowser.openBrowserAsync(
+                                offer.contract.buyerSignUrl
+                              )
+                            }}
+                          >
+                            Sign contract
+                          </Button>
+                        )}
                       <Modal visible={showModal} transparent={true}>
                         <View style={styles.centerView}>
                           <View style={styles.modalView}>
@@ -344,7 +377,9 @@ const TenderRequest = ({
                             <TextInput
                               style={styles.modalInput}
                               multiline={true}
-                              onChangeText={text => setAcceptanceMotivationText(text)}
+                              onChangeText={(text) =>
+                                setAcceptanceMotivationText(text)
+                              }
                             />
                             <Container style={styles.modalButtons}>
                               <Button onPress={() => setShowModal(false)}>
@@ -354,8 +389,16 @@ const TenderRequest = ({
                                 mode="contained"
                                 onPress={() => {
                                   console.log('offer', offer)
-                                  console.log('motivation text', acceptanceMotivationText)
-                                  updateOffer({ ...offer, acceptanceMotivation: acceptanceMotivationText, approved: true })
+                                  console.log(
+                                    'motivation text',
+                                    acceptanceMotivationText
+                                  )
+                                  updateOffer({
+                                    ...offer,
+                                    acceptanceMotivation:
+                                      acceptanceMotivationText,
+                                    approved: true,
+                                  })
                                   setShowModal(false)
                                 }}
                               >
@@ -364,7 +407,7 @@ const TenderRequest = ({
                             </Container>
                           </View>
                         </View>
-                      </Modal> 
+                      </Modal>
                     </View>
                   ))}
                 </Container>
@@ -390,17 +433,24 @@ const TenderRequest = ({
   )
 }
 
-const Row = ({ children }) => (
+const Row = ({ children }: { children: React.ReactNode }) => (
   <View style={{ flexDirection: 'row' }}>{children}</View>
 )
 
-const Column = ({ children }) => (
+const Column = ({ children }: { children: React.ReactNode }) => (
   <View style={{ flexDirection: 'column', marginRight: 20 }}>{children}</View>
 )
 
 const Container = ({ children, style }: { children: any; style?: any }) => (
   <View style={{ ...styles.container, ...style }}>{children}</View>
 )
+
+function singedUserIsSigningParty(offer: Offer, user: User): boolean {
+  return (
+    offer.contract.buyerSignUrl.includes(user.id) ||
+    offer.contract.supplierSignUrl.includes(user.id)
+  )
+}
 
 export default TenderRequest
 
@@ -450,9 +500,9 @@ const styles = StyleSheet.create({
   },
   acceptanceReasonTextWrapper: {
     paddingHorizontal: 12,
-    paddingBottom: 12
+    paddingBottom: 12,
   },
   acceptanceReasonText: {
     fontSize: 12,
-  }
+  },
 })
